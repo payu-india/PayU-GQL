@@ -214,10 +214,9 @@ class Payu extends AbstractHelper
             $storeId
         );
     }
-     public function saveWebhook($params)
+    public function saveWebhook($params)
     {
         $post=rawurldecode($params);
-        //parse_str($post,$postData);
         $postData = json_decode($post, true);
         if (json_last_error() === JSON_ERROR_NONE) {
             $txnid = isset($postData['txnid']) ? $postData['txnid'] : (isset($postData['merchantTxnId']) ? $postData['merchantTxnId'] : null);
@@ -226,29 +225,35 @@ class Payu extends AbstractHelper
             $txnid = isset($postData['txnid']) ? $postData['txnid'] : (isset($postData['merchantTxnId']) ? $postData['merchantTxnId'] : null);
            
         }
-        //$txnid=isset($postData['txnid'])?$postData['txnid']:$postData['merchantTxnId'];
-        $webhookData= $this->payuWebhookCollection->addFieldToFilter('txn_id',$txnid)->getFirstItem();
-        $data = [
-            'txn_id' => $txnid,
-            'mihpayid' => $postData['mihpayid'],
-            'response' => json_encode($postData, true),
-            'status' => 0,
-            'payment_response' => $postData['status'],
-            'type' => 'payment'
-        ];
-        if(isset($postData['action']))
-            $data['type'] = $postData['action'];
+        if (!$txnid) {
+            return;
+        }
+        $status   = $postData['status'] ?? '';
+        $mihpayid = $postData['mihpayid'] ?? '';
+        $udf3     = $postData['udf3'] ?? '';
 
-        if($webhookData->getId()) {    
-            if ($webhookData->getTxnId() == $postData['txnid'] && $webhookData->getPaymentResponse() == $postData['status']) {
+        $webhookData= $this->payuWebhookCollection->addFieldToFilter('txn_id',$txnid);
+        $isDuplicate = false;
+        foreach ($webhookData as $item) {
+            $response = json_decode($item->getResponse(), true);
 
-            } else {
-                $webhook=$this->payuWebhook->addData($data)->save();
+            if ($item->getTxnId() == $txnid && $item->getPaymentResponse() == $status && (($response['udf3'] ?? '') == $udf3)) {
+                $isDuplicate = true;
+                break;
             }
-        }else{
-		//$logger->info('data: '.json_encode($data));
-            $webhook=$this->payuWebhook->addData($data)->save();
-		//$logger->info('data save');
+        }
+        if (!$isDuplicate) {
+            $data = [
+                'txn_id'           => $txnid,
+                'mihpayid'         => $mihpayid,
+                'response'         => json_encode($postData),
+                'status'           => 0,
+                'payment_response' => $status,
+                'type'             => $postData['action'] ?? 'payment'
+            ];
+            $this->payuWebhook
+                ->addData($data)
+                ->save();
         }
     }
     public function updateOrderFromResponse($order,$params)
