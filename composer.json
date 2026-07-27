@@ -1,5 +1,5 @@
 {
-    "name": "payuindia/module-payu",
+    "name": "payuindia/payu_gql",
     "description": "PayU Payment Module for Magento 2.4.x",
     "require": {
         "php": "~8.4.0"
@@ -11,7 +11,9 @@
         "AFL-3.0"
     ],
     "autoload": {
-        "files": [ "registration.php" ],
+        "files": [
+            "registration.php"
+        ],
         "psr-4": {
             "PayUIndia\\Payu\\": ""
         }
